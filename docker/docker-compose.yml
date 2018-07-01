@@ -1,0 +1,76 @@
+version: '2'
+services:
+
+    ####################################################################################################################
+    # Data containers
+    ####################################################################################################################
+
+    # for all logs
+    data_logs:
+        image: busybox
+        volumes:
+            - ${APP_PATH_LOGS}:/var/logs
+    data_cache:
+        image: busybox
+        volumes:
+            - ${APP_PATH_CACHE}:/var/cache
+    data_sessions:
+        image: busybox
+        volumes:
+            - ${APP_PATH_SESSION}:/var/sessions
+
+    # with app source
+    data_source:
+        image: busybox
+        volumes:
+            - ${APP_PATH}:/var/www/app
+
+    data_mysql:
+        image: busybox
+        volumes:
+          - ./.data/db:/var/lib/mysql
+
+
+    ####################################################################################################################
+    # App containers
+    ####################################################################################################################
+
+    # php-fpm
+    app_phpfpm:
+        container_name: "app_phpfpm"
+        build: ./images/php
+        restart: always
+        links:
+            - mysql:mysql
+        volumes_from:
+            - data_logs
+            - data_cache
+            - data_sessions
+            - data_source
+
+    # web server
+    nginx:
+        container_name: "app_nginx"
+        build: ./images/nginx
+        restart: always
+        links:
+            - app_phpfpm
+        volumes_from:
+            - data_logs
+            - data_source
+        ports:
+            - 80:80
+
+    mysql:
+        container_name: "mysql"
+        build: ./images/mysql
+        restart: always
+        ports:
+            - 3307:3306
+        volumes_from:
+            - data_mysql
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
